@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -19,8 +20,11 @@ func TestEmbeddedCoreProcess(t *testing.T) {
 	}
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "app")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	tags, _ := os.ReadFile("CORE_TAGS")
-	if out, err := exec.Command("go", "build", "-tags", strings.TrimSpace(string(tags)), "-o", bin, ".").CombinedOutput(); err != nil {
+	if out, err := exec.Command("go", "build", "-tags", strings.TrimSpace(string(tags)), "-ldflags=-checklinkname=0", "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
 	out, err := exec.Command(bin, coreFlag, "version").Output()

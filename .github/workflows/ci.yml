@@ -13,7 +13,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Тесты
-        run: go test -tags "$(cat CORE_TAGS)" ./...
+        run: go test -tags "$(cat CORE_TAGS)" -ldflags=-checklinkname=0 ./...
       - name: Проверка кода под Windows
         run: GOOS=windows GOARCH=amd64 go vet -tags "$(cat CORE_TAGS)" .
       - name: Сборка exe
@@ -37,4 +37,4 @@ jobs:
           set -o pipefail
           # установщик собирается только с готовым app.exe внутри, поэтому его пакет здесь не проверяется
           # упавшие проверки выносятся в аннотации запуска, чтобы их было видно без скачивания журнала
-          go test -tags "$(cat CORE_TAGS)" $(go list ./... | grep -v /tools/installer) 2>&1 | tee test.log || { grep -E -- "--- FAIL|^FAIL|panic:|_test.go:[0-9]+:" test.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+          go test -tags "$(cat CORE_TAGS)" -ldflags=-checklinkname=0 $(go list ./... | grep -v /tools/installer) 2>&1 | tee test.log || { grep -E -- "--- FAIL|^FAIL|panic:|_test.go:[0-9]+:" test.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }

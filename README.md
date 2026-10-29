@@ -35,7 +35,7 @@ tools/setup/build.sh 6.3.0 app.exe out/
 ## Тесты
 
 ```
-go test -tags "$(cat CORE_TAGS)" ./...
+go test -tags "$(cat CORE_TAGS)" -ldflags=-checklinkname=0 ./...
 GOOS=windows go vet -tags "$(cat CORE_TAGS)" .
 ```
 
