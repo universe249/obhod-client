@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Обход для чайников</title>
+<script>
+(function(){try{var t=localStorage.getItem("theme")||"dark";
+if(t==="auto")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";
+document.documentElement.dataset.theme=t;}catch(e){document.documentElement.dataset.theme="dark";}})();
+</script>
+<style>
+:root{--bg:#0d1117;--panel:rgba(255,255,255,.05);--line:rgba(255,255,255,.09);--text:#e6edf3;--muted:#8b98a5;
+  --ok:#2dd4a7;--sky:#4cc9f0;--violet:#9b8cff;--bad:#f06b6b;--warn:#f5b84a;color-scheme:dark}
+:root[data-theme=light]{--bg:#f4f6f9;--panel:rgba(0,0,0,.035);--line:rgba(0,0,0,.08);--text:#18202a;--muted:#5f6b78;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;user-select:none}
+body{background:var(--bg);color:var(--text);font:13px/1.4 "Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column;padding:12px 14px 14px;gap:8px;position:relative}
+body::before{content:"";position:absolute;inset:-30%;z-index:-1;opacity:.5;pointer-events:none;
+  background:radial-gradient(40% 30% at 15% 10%,rgba(45,212,167,.45),transparent 70%),radial-gradient(40% 30% at 90% 15%,rgba(155,140,255,.4),transparent 70%),radial-gradient(45% 35% at 70% 95%,rgba(255,107,157,.28),transparent 70%)}
+:root[data-theme=light] body::before{opacity:.35}
+header{display:flex;align-items:center;gap:8px}
+header img{width:26px;height:26px;border-radius:50%}
+header b{flex:1;font-size:13px;font-weight:600}
+header button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:6px}
+header button:hover{background:var(--panel);color:var(--text)}
+.hero{display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
+.pw{--c:var(--muted);flex:none;width:64px;height:64px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;
+  background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--c) 55%,#fff 10%),color-mix(in srgb,var(--c) 30%,#000) 75%);
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 22%,transparent),0 8px 24px color-mix(in srgb,var(--c) 35%,transparent);transition:.25s}
+.pw svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2.3;stroke-linecap:round}
+.pw:hover{transform:scale(1.04)} .pw:disabled{opacity:.6;cursor:wait}
+body.on .pw{--c:var(--ok)} body.bad .pw{--c:var(--bad)} body.starting .pw{--c:var(--warn)}
+.st{min-width:0;flex:1}
+.st .t{font-size:20px;font-weight:700;line-height:1.15}
+body.on .st .t{color:var(--ok)} body.bad .st .t{color:var(--bad)}
+.st .s{color:var(--muted);font-size:12px;margin-top:3px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.cell{padding:7px 10px;border-radius:12px;background:var(--panel);border:1px solid var(--line);min-width:0}
+.cell span{display:block;color:var(--muted);font-size:11px}
+.cell b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.wide{grid-column:1/-1}
+.cell b{font-size:13px}
+.cell.wide b{font-size:14px}
+.acts{display:flex;flex-direction:column;gap:6px;margin-top:auto}
+.act{display:flex;align-items:center;gap:10px;width:100%;padding:8px 11px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);cursor:pointer;text-align:left}
+.act:hover{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.act .lb{flex:1}
+.act small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act .lb{min-width:0}
+.sw{flex:none;width:34px;height:20px;border-radius:10px;background:var(--line);position:relative;transition:.2s}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.2s}
+.act.on .sw{background:var(--ok)} .act.on .sw::after{left:17px}
+.open{justify-content:center;font-weight:600;background:linear-gradient(90deg,color-mix(in srgb,var(--ok) 30%,transparent),color-mix(in srgb,var(--sky) 30%,transparent))}
+.hide{display:none!important}
+.err{color:var(--bad);font-size:12px;min-height:0}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><img src="/logo.png" alt=""><b>Обход для чайников</b><button id="close" title="Скрыть (Esc)">✕</button></header>
+
+<div class="hero">
+  <button class="pw" id="pw" title="Включить / выключить"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button>
+  <div class="st"><div class="t" id="t">…</div><div class="s" id="s"></div></div>
+</div>
+
+<div class="grid" id="grid">
+  <div class="cell wide"><span>Путь</span><b id="path">—</b></div>
+  <div class="cell"><span>Отклик</span><b id="ping">—</b></div>
+  <div class="cell"><span>↓ Загрузка</span><b id="down">—</b></div>
+  <div class="cell"><span>↑ Отдача</span><b id="up">—</b></div>
+  <div class="cell wide hide" id="subCell"><span>Подписка</span><b id="sub"></b></div>
+</div>
+<div class="err" id="err"></div>
+
+<div class="acts">
+  <button class="act hide" id="all"><span class="lb">Всё через сервер на час<small id="allSub">Если сайт не открывается</small></span><span class="sw"></span></button>
+  <button class="act" id="ads"><span class="lb">Без рекламы<small id="adsSub">Реклама и трекеры во всех программах</small></span><span class="sw"></span></button>
+  <button class="act hide" id="game"><span class="lb">Игровой режим<small>Игры идут напрямую</small></span><span class="sw"></span></button>
+  <button class="act open" id="open">Открыть программу</button>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+let ST={}, S=null, last=null, busy=false;
+async function api(path, body){
+  const r=await fetch(path, body===undefined?{}:{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error||("ошибка "+r.status));
+  return j;
+}
+function rate(b){ if(b<1024) return Math.round(b)+" Б/с"; if(b<1048576) return (b/1024).toFixed(b<10240?1:0)+" КБ/с"; return (b/1048576).toFixed(1)+" МБ/с"; }
+function gb(b){ return (b/1073741824).toFixed(b<10*1073741824?1:0); }
+function pathText(){
+  if(!ST.running) return "—";
+  const p=ST.path||ST.serverName||"—", m=/\(через ([^)]+)\)/.exec(p);
+  if(/hysteria|hy2/i.test(p)) return "Hysteria2"+(m?" через "+m[1]:"");
+  return m ? "через «"+m[1]+"»" : (p===ST.serverName ? "напрямую · "+p : p);
+}
+function render(){
+  const bad=ST.running && ST.health==="bad", on=ST.running && ST.ready && !bad, starting=ST.running && !ST.ready;
+  document.body.className = bad?"bad":on?"on":starting?"starting":"";
+  $("#t").textContent = !ST.running?"Выключено":bad?"Нет связи":on?"Работает":"Запускается…";
+  const left=+ST.globalLeft||0;
+  $("#s").textContent = !ST.hasServer?"Добавь сервер в программе":!ST.running?"Нажми, чтобы включить":bad?"Сервер не отвечает":
+    left>0?"Всё через сервер ещё "+Math.max(1,Math.ceil(left/60))+" мин":(S&&S.mode==="global"?"Весь трафик через сервер":"Заблокированное — через сервер");
+  $("#path").textContent=pathText();
+  $("#ping").textContent = on && ST.pingMs ? ST.pingMs+" мс" : "—";
+  // скорость — по приросту счётчиков между опросами
+  const now=Date.now();
+  if(ST.running && last && ST.downTotal!=null){ const dt=(now-last.t)/1000; if(dt>0.3){ $("#down").textContent=rate(Math.max(0,(ST.downTotal-last.d)/dt)); $("#up").textContent=rate(Math.max(0,(ST.upTotal-last.u)/dt)); } }
+  else if(!ST.running){ $("#down").textContent="—"; $("#up").textContent="—"; }
+  last = ST.running ? {t:now,d:ST.downTotal||0,u:ST.upTotal||0} : null;
+  const M=S&&S.subMeta;
+  if(M && M.ours && (M.total||M.expire)){
+    const parts=[];
+    if(M.expire){ const d=Math.ceil((M.expire*1000-now)/86400000); parts.push(d>0?"осталось "+d+" дн.":"срок закончился"); }
+    if(M.total) parts.push(gb(M.used||0)+" из "+gb(M.total)+" ГБ");
+    $("#sub").textContent=parts.join(" · "); $("#subCell").classList.remove("hide");
+  } else $("#subCell").classList.add("hide");
+  $("#all").classList.toggle("hide", !ST.hasServer || (S&&S.mode==="global"));
+  $("#all").classList.toggle("on", left>0);
+  $("#allSub").textContent = left>0 ? "Ещё "+Math.max(1,Math.ceil(left/60))+" мин, потом снова как обычно" : "Если какой-то сайт не открывается";
+  $("#ads").classList.toggle("on", !!ST.adBlock);
+  $("#adsSub").textContent = ST.adBlock && ADS!=null ? "Заблокировано сегодня: "+ADS.toLocaleString("ru-RU") : "Реклама и трекеры во всех программах";
+  $("#game").classList.toggle("hide", !ST.gameApps);
+  $("#game").classList.toggle("on", !!ST.gameMode);
+  $("#pw").disabled=busy||starting;
+}
+let ADS=null, adsAt=0;
+async function loadAds(){ if(!ST.adBlock||Date.now()-adsAt<10000) return; adsAt=Date.now(); try{ const r=await api("/api/adstats"); ADS=r.counting?r.today:null; render(); }catch(e){} }
+async function poll(){
+  try{ ST=await api("/api/state"); $("#err").textContent=""; loadAds();
+    // тема как в главном окне (у панели своё хранилище, поэтому берём у программы)
+    document.documentElement.dataset.theme = ST.uiLight ? "light" : "dark"; }
+  catch(e){ $("#err").textContent="Нет связи с программой"; }
+  render();
+}
+async function loadSettings(){ try{ S=(await api("/api/settings")).settings; }catch(e){} }
+async function act(fn){ if(busy) return; busy=true; render(); try{ await fn(); $("#err").textContent=""; }catch(e){ $("#err").textContent=e.message; } busy=false; await loadSettings(); await poll(); }
+$("#pw").onclick=()=>act(()=>api(ST.running?"/api/core/stop":"/api/core/start",{}));
+$("#all").onclick=()=>act(()=>api("/api/tempglobal",{minutes:(+ST.globalLeft||0)>0?0:60}));
+$("#game").onclick=()=>act(()=>api("/api/game",{on:!ST.gameMode}));
+$("#ads").onclick=()=>act(()=>api("/api/adblock",{on:!ST.adBlock}));
+$("#open").onclick=()=>{ if(window.obhodOpen) window.obhodOpen(); else window.open("/","_blank"); };
+$("#close").onclick=()=>{ if(window.obhodHide) window.obhodHide(); };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape" && window.obhodHide) window.obhodHide(); });
+// журнал для диагностики: доходят ли нажатия до страницы (по одному событию каждого вида за показ панели)
+const seen={};
+function mlog(ev){ if(seen[ev]) return; seen[ev]=1; fetch("/api/minilog",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ev})}).catch(()=>{}); }
+document.addEventListener("pointerdown",e=>mlog("нажатие мышью: "+((e.target.closest("button")||{}).id||e.target.tagName)),true);
+document.addEventListener("mousemove",()=>mlog("мышь над панелью"),true);
+document.addEventListener("keydown",e=>mlog("клавиша: "+e.key),true);
+window.addEventListener("error",e=>mlog("ошибка JS: "+e.message));
+window.addEventListener("focus",()=>mlog("страница получила фокус"));
+mlog("страница загружена");
+// панель спрятана — не опрашиваем; показали — сразу свежие данные
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ for(const k in seen) delete seen[k]; mlog("панель показана"); last=null; loadSettings().then(poll); } });
+setInterval(()=>{ if(!document.hidden) poll(); }, 1500);
+loadSettings().then(poll);
+})();
+</script>
+</body>
+</html>

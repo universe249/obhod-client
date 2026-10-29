@@ -1,0 +1,67 @@
+# Выпуск версии: git tag v6.0.19 && git push origin v6.0.19
+# Собирает программу и установщик, подписывает архив, проверяет подпись и создаёт ЧЕРНОВИК релиза в universe249/obhodch.
+# Опубликовать черновик (кнопка Publish release) нужно вручную — до этого программы у людей обновление не увидят.
+# Секреты репозитория: SIGNING_KEY (содержимое signing.key), OBHODCH_TOKEN (токен с правом Contents: write на obhodch).
+name: Release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:  # пробный прогон без публикации: Actions → Release → Run workflow
+    inputs:
+      version:
+        description: "Версия для пробной сборки (например 6.0.18)"
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Версия из тега
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then echo "V=${INPUT_VERSION#v}" >> "$GITHUB_ENV"; else echo "V=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"; fi
+      - name: Описание версии есть
+        run: test -s "release-notes/v$V.md" || { echo "нет release-notes/v$V.md"; exit 1; }
+      - name: Тесты
+        run: go test -tags "$(cat CORE_TAGS)" ./...
+      - name: Программа
+        run: GOOS=windows GOARCH=amd64 go build -tags "$(cat CORE_TAGS)" -trimpath -ldflags "-s -w -H=windowsgui -checklinkname=0 -X main.appVersion=$V" -o app.exe .
+      - name: Установщик (NSIS)
+        run: |
+          sudo apt-get install -y -q nsis
+          tools/setup/build.sh "$V" app.exe .
+      - name: Архив для автообновления
+        run: python3 tools/package.py "$V" app.exe
+      - name: Подпись
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: |
+          test -n "$SIGNING_KEY" || { echo "нет секрета SIGNING_KEY"; exit 1; }
+          umask 077; printf '%s' "$SIGNING_KEY" > signing.key
+          go run ./tools/release sign "Obhod-v$V.zip" "$V" signing.key
+          rm -f signing.key
+      - name: Проверка подписи
+        run: |
+          pip install --quiet cryptography
+          python3 tools/verify_release.py "$V"
+      - name: Черновик релиза в obhodch
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.OBHODCH_TOKEN }}
+        run: |
+          gh release create "v$V" --repo universe249/obhodch --draft \
+            --title "Обход для чайников $V" --notes-file "release-notes/v$V.md" \
+            "Obhod-v$V.zip" manifest.json manifest.json.sig "Obhod-Setup-v$V.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ env.V }}
+          path: |
+            Obhod-v${{ env.V }}.zip
+            manifest.json
+            manifest.json.sig
+            Obhod-Setup-v${{ env.V }}.exe

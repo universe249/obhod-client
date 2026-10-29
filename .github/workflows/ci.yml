@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Тесты
+        run: go test -tags "$(cat CORE_TAGS)" ./...
+      - name: Проверка кода под Windows
+        run: GOOS=windows GOARCH=amd64 go vet -tags "$(cat CORE_TAGS)" .
+      - name: Сборка exe
+        run: GOOS=windows GOARCH=amd64 go build -tags "$(cat CORE_TAGS)" -trimpath -ldflags "-s -w -H=windowsgui -checklinkname=0 -X main.appVersion=ci-${GITHUB_SHA::7}" -o app.exe .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ github.sha }}
+          path: app.exe
+          retention-days: 14
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Тесты на настоящем Windows
+        shell: bash
+        run: |
+          set -o pipefail
+          # установщик собирается только с готовым app.exe внутри, поэтому его пакет здесь не проверяется
+          # упавшие проверки выносятся в аннотации запуска, чтобы их было видно без скачивания журнала
+          go test -tags "$(cat CORE_TAGS)" $(go list ./... | grep -v /tools/installer) 2>&1 | tee test.log || { grep -E -- "--- FAIL|^FAIL|panic:|_test.go:[0-9]+:" test.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
