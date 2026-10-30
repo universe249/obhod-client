@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -70,7 +72,90 @@ func (c *Core) binPath(st Settings) string {
 	if err != nil {
 		return ""
 	}
+	if runtime.GOOS != "windows" {
+		return exe
+	}
+	return coreAlias(exe, c.dataDir)
+}
+
+// coreExeName — под каким именем запускается ядро на Windows.
+const coreExeName = "obhod-core.exe"
+
+// coreAlias даёт ядру путь только из латиницы: data\obhod-core.exe — жёсткая ссылка на программу (места не занимает).
+// Зачем: в режиме strict_route ядро ставит фильтр Windows (WFP), который блокирует DNS на порт 53 мимо туннеля для всех,
+// кроме самого ядра, а ядро Windows узнаёт по пути к exe. С путём «C:\…\Обход для чайников.exe» исключение не
+// срабатывало: прямые DNS-запросы ядра (локальный DNS) блокировались, и все сайты «напрямую» переставали открываться.
+// Если ссылку сделать нельзя — копия; если и это не вышло — запускаем саму программу.
+func coreAlias(exe, dataDir string) string {
+	dst := filepath.Join(coreDir(dataDir), coreExeName)
+	ei, err := os.Stat(exe)
+	if err != nil {
+		return exe
+	}
+	if di, err := os.Stat(dst); err == nil && (os.SameFile(ei, di) || (di.Size() == ei.Size() && di.ModTime().Equal(ei.ModTime()))) {
+		return dst
+	}
+	_ = os.Remove(dst)
+	if err := os.Link(exe, dst); err == nil {
+		return dst
+	}
+	if err := copyFileTimes(exe, dst); err == nil {
+		return dst
+	}
+	log.Printf("ядро: не удалось подготовить %s, запускаю из программы", dst)
 	return exe
+}
+
+// coreDir — папка для ядра: data, если путь к ней только из латиницы, иначе C:\ProgramData\Obhod
+// (при установке через установщик папка программы называется по-русски).
+func coreDir(dataDir string) string {
+	if isASCII(dataDir) {
+		return dataDir
+	}
+	if pd := os.Getenv("ProgramData"); pd != "" && isASCII(pd) {
+		d := filepath.Join(pd, "Obhod")
+		if os.MkdirAll(d, 0o755) == nil {
+			return d
+		}
+	}
+	return dataDir
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
+func copyFileTimes(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	fi, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	tmp := dst + ".tmp"
+	out, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	_ = os.Chtimes(tmp, fi.ModTime(), fi.ModTime())
+	return os.Rename(tmp, dst)
 }
 
 // coreCmd — команда встроенного ядра: эта же программа с ключом -core.

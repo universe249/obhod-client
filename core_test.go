@@ -111,3 +111,29 @@ func TestRemoveLegacyCore(t *testing.T) {
 		t.Fatal("not removed after .bak changed")
 	}
 }
+
+func TestCoreAlias(t *testing.T) {
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "Обход для чайников.exe")
+	_ = os.WriteFile(exe, []byte("program v1"), 0o755)
+	data := filepath.Join(dir, "data")
+	_ = os.MkdirAll(data, 0o755)
+	t.Setenv("ProgramData", filepath.Join(dir, "pd"))
+	got := coreAlias(exe, data)
+	if !isASCII(got) || filepath.Base(got) != coreExeName {
+		t.Fatalf("путь ядра не латиницей: %s", got)
+	}
+	if b, _ := os.ReadFile(got); string(b) != "program v1" {
+		t.Fatal("ядро не та же программа")
+	}
+	// обновление: программа заменена новым файлом — ядро тоже должно смениться
+	_ = os.Remove(exe)
+	_ = os.WriteFile(exe, []byte("program v2!"), 0o755)
+	got = coreAlias(exe, data)
+	if b, _ := os.ReadFile(got); string(b) != "program v2!" {
+		t.Fatalf("ядро не обновилось: %q", b)
+	}
+	if coreDir("/tmp/ascii/data") != "/tmp/ascii/data" {
+		t.Fatal("латинский путь должен оставаться")
+	}
+}

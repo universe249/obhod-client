@@ -261,7 +261,7 @@ func leftoverCore(dataDir string) int {
 		return 0
 	}
 	exe, _ := os.Executable()
-	if n := procByPID(pid); n != "" && strings.EqualFold(n, filepath.Base(exe)) {
+	if n := procByPID(pid); n != "" && (strings.EqualFold(n, filepath.Base(exe)) || strings.EqualFold(n, coreExeName)) {
 		return pid
 	}
 	return 0

@@ -101,6 +101,8 @@ Var Updating
   Pop $0
   nsExec::Exec 'taskkill /F /IM sing-box.exe'
   Pop $0
+  nsExec::Exec 'taskkill /F /IM obhod-core.exe'
+  Pop $0
   nsExec::Exec 'taskkill /F /IM xray.exe'
   Pop $0
   Sleep 800
@@ -200,6 +202,9 @@ Section "-Программа" SecApp
   CreateDirectory "$INSTDIR\data"
   Delete "$INSTDIR\data\sing-box.exe"
   Delete "$INSTDIR\data\libcronet.dll"
+  Delete "$INSTDIR\data\obhod-core.exe"   ; ссылка на прошлую версию программы, пересоздастся при включении
+  ReadEnvStr $1 ProgramData
+  Delete "$1\Obhod\obhod-core.exe"
   Delete "$INSTDIR\sing-box-LICENSE.txt"
   Delete "$INSTDIR\data\sing-box-LICENSE.txt"
   File "/oname=LICENSE.txt" "${PAYLOAD}\LICENSE"
@@ -275,6 +280,10 @@ Section "-un.Программа"
   Delete "$INSTDIR\${EXENAME}"
   Delete "$INSTDIR\${EXENAME}.bak"   ; остаются после автообновления
   Delete "$INSTDIR\${EXENAME}.new"
+  Delete "$INSTDIR\data\obhod-core.exe"   ; ядро (ссылка на программу)
+  ReadEnvStr $1 ProgramData
+  Delete "$1\Obhod\obhod-core.exe"
+  RMDir "$1\Obhod"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
 SectionEnd
