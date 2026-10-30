@@ -28,9 +28,9 @@ jobs:
       - name: Описание версии есть
         run: test -s "release-notes/v$V.md" || { echo "нет release-notes/v$V.md"; exit 1; }
       - name: Тесты
-        run: go test -tags "$(cat CORE_TAGS)" -ldflags=-checklinkname=0 ./...
+        run: go test -tags "$(cat CORE_TAGS)" -ldflags="$(cat CORE_LDFLAGS)" ./...
       - name: Программа
-        run: GOOS=windows GOARCH=amd64 go build -tags "$(cat CORE_TAGS)" -trimpath -ldflags "-s -w -H=windowsgui -checklinkname=0 -X main.appVersion=$V" -o app.exe .
+        run: GOOS=windows GOARCH=amd64 go build -tags "$(cat CORE_TAGS)" -trimpath -ldflags "-s -w -H=windowsgui $(cat CORE_LDFLAGS) -X main.appVersion=$V" -o app.exe .
       - name: Установщик (NSIS)
         run: |
           sudo apt-get install -y -q nsis

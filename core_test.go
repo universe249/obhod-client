@@ -24,7 +24,8 @@ func TestEmbeddedCoreProcess(t *testing.T) {
 		bin += ".exe"
 	}
 	tags, _ := os.ReadFile("CORE_TAGS")
-	if out, err := exec.Command("go", "build", "-tags", strings.TrimSpace(string(tags)), "-ldflags=-checklinkname=0", "-o", bin, ".").CombinedOutput(); err != nil {
+	ldf, _ := os.ReadFile("CORE_LDFLAGS")
+	if out, err := exec.Command("go", "build", "-tags", strings.TrimSpace(string(tags)), "-ldflags="+strings.TrimSpace(string(ldf)), "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
 	out, err := exec.Command(bin, coreFlag, "version").Output()

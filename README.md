@@ -10,18 +10,18 @@ WebView2 (`ui.html`, `mini.html`), всё остальное — Go.
 
 ## Как устроено ядро
 
-sing-box подключён как Go-библиотека и собирается в тот же exe. Туннель работает во втором экземпляре программы,
+sing-box (версия и все зависимости — как у официальной сборки 1.14.3) подключён как Go-библиотека и собирается в тот же exe. Туннель работает во втором экземпляре программы,
 запущенном с ключом `-core` (`corerun.go`): паника в ядре не роняет окно, программа видит падение и перезапускает
 туннель. Остановка — закрытием stdin ядра (мягкое закрытие TUN), через 3 секунды — принудительно. Статистику и задержки
 окно берёт из clash API ядра на 127.0.0.1.
 
 ## Сборка
 
-Нужен Go 1.25.5+. Теги ядра лежат в `CORE_TAGS` — без них сборка намеренно не проходит.
+Нужен Go 1.26.8 (тот же, что у официальных сборок sing-box). Теги ядра лежат в `CORE_TAGS`, флаги компоновщика — в `CORE_LDFLAGS`; без тегов сборка намеренно не проходит.
 
 ```
 GOOS=windows GOARCH=amd64 go build -tags "$(cat CORE_TAGS)" -trimpath \
-  -ldflags "-s -w -H=windowsgui -checklinkname=0 -X main.appVersion=6.3.0" -o app.exe .
+  -ldflags "-s -w -H=windowsgui $(cat CORE_LDFLAGS) -X main.appVersion=6.3.0" -o app.exe .
 ```
 
 Установщик (NSIS, мастер на русском; нужен `apt install nsis`):
@@ -35,7 +35,7 @@ tools/setup/build.sh 6.3.0 app.exe out/
 ## Тесты
 
 ```
-go test -tags "$(cat CORE_TAGS)" -ldflags=-checklinkname=0 ./...
+go test -tags "$(cat CORE_TAGS)" -ldflags="$(cat CORE_LDFLAGS)" ./...
 GOOS=windows go vet -tags "$(cat CORE_TAGS)" .
 ```
 
